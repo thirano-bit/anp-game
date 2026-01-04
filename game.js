@@ -38,12 +38,16 @@ audio.bgm.loop = true;
 audio.bgm.volume = 0.04; // さらにおどらせて声を強調
 audio.correct.volume = 0.6;
 audio.wrong.volume = 0.6;
-audio.special.forEach(s => s.volume = 1.3); // 1.3倍にアップ
+audio.special.forEach(s => s.volume = 1.0); // 1.0以上に設定するとエラーになるブラウザ（Safari等）があるため
 
 fetch('public/sounds/explosion.mp3')
-    .then(res => res.arrayBuffer())
+    .then(res => {
+        if (!res.ok) throw new Error('Sound not found');
+        return res.arrayBuffer();
+    })
     .then(data => audioContext.decodeAudioData(data))
-    .then(buffer => audio.popBuffer = buffer);
+    .then(buffer => audio.popBuffer = buffer)
+    .catch(err => console.error("Sound load error:", err));
 
 // Page Visibility / Pause Logic
 window.addEventListener('visibilitychange', () => {
@@ -232,15 +236,18 @@ window.addEventListener('resize', resize);
 resize();
 
 // Menu Logic
-normalModeBtn.addEventListener('click', () => startLevel('NORMAL'));
-colorModeBtn.addEventListener('click', () => startLevel('COLOR_FIND'));
+const startHandler = (mode) => {
+    startLevel(mode);
+};
+normalModeBtn.addEventListener('pointerdown', () => startHandler('NORMAL'));
+colorModeBtn.addEventListener('pointerdown', () => startHandler('COLOR_FIND'));
 
-restartBtn.addEventListener('click', (e) => {
+restartBtn.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
     resetGame();
 });
 
-exitBtn.addEventListener('click', (e) => {
+exitBtn.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
     returnToMenu();
 });
@@ -280,9 +287,15 @@ function returnToMenu() {
 }
 
 fullscreenBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => console.error(err));
+    if (document.documentElement.requestFullscreen) {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => console.error(err));
+            fullscreenBtn.style.display = 'none';
+        }
+    } else {
+        // iPad Safari support is limited, maybe just hide it or tell user
         fullscreenBtn.style.display = 'none';
+        enableAudio(); // Safety
     }
 });
 
