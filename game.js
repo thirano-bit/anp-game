@@ -237,19 +237,36 @@ resize();
 
 // Menu Logic
 const startHandler = (mode) => {
+    console.log("Starting mode:", mode);
     startLevel(mode);
 };
-normalModeBtn.addEventListener('pointerdown', () => startHandler('NORMAL'));
-colorModeBtn.addEventListener('pointerdown', () => startHandler('COLOR_FIND'));
 
-restartBtn.addEventListener('pointerdown', (e) => {
+// iPad/iOS verification: 'click' is the most reliable for user-initiated events like AudioContext resume
+normalModeBtn.addEventListener('click', () => startHandler('NORMAL'));
+colorModeBtn.addEventListener('click', () => startHandler('COLOR_FIND'));
+
+restartBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     resetGame();
 });
 
-exitBtn.addEventListener('pointerdown', (e) => {
+exitBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     returnToMenu();
+});
+
+const clearCacheBtn = document.getElementById('clear-cache-btn');
+clearCacheBtn.addEventListener('click', () => {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+                registration.unregister();
+            }
+            window.location.reload(true);
+        });
+    } else {
+        window.location.reload(true);
+    }
 });
 
 function startLevel(mode) {

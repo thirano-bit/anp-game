@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anpanman-pop-v2';
+const CACHE_NAME = 'anpanman-pop-v3';
 const ASSETS = [
     './',
     './index.html',
