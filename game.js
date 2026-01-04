@@ -35,7 +35,7 @@ const audio = {
     enabled: false
 };
 audio.bgm.loop = true;
-audio.bgm.volume = 1.0;
+audio.bgm.volume = 0.5;
 audio.correct.volume = 1.0;
 audio.wrong.volume = 1.0;
 audio.special.forEach(s => s.volume = 1.0);
