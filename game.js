@@ -35,7 +35,7 @@ const audio = {
     enabled: false
 };
 audio.bgm.loop = true;
-audio.bgm.volume = 0.3; // 重なり時の音量ダウン（ポンピング）を防ぐためのヘッドルーム確保
+audio.bgm.volume = 0.1;
 audio.correct.volume = 0.5;
 audio.wrong.volume = 0.5;
 audio.special.forEach(s => s.volume = 0.5);
@@ -351,6 +351,18 @@ class Ball {
     update() {
         this.x += this.vx;
         this.y += this.vy;
+
+        // 壁との衝突（画面内に入ってから有効化）
+        if (this.x > this.radius && this.x < width - this.radius) {
+            if (this.x - this.radius < 0 || this.x + this.radius > width) {
+                // すでに上記ifで範囲内なのを保証してるので、ここは実際には画面端に触れた瞬間
+            }
+        }
+        // 簡易的な画面端跳ね返りロジック
+        if (this.x - this.radius < 0 && this.vx < 0) this.vx *= -1;
+        if (this.x + this.radius > width && this.vx > 0) this.vx *= -1;
+        if (this.y - this.radius < 0 && this.vy < 0) this.vy *= -1;
+        if (this.y + this.radius > height && this.vy > 0) this.vy *= -1;
     }
 
     draw() {
@@ -409,7 +421,13 @@ class PopCharacter {
         this.displayName = data ? data.displayName : null;
 
         this.x = x; this.y = y; this.scale = 0; this.targetScale = 0.65;
-        this.life = 2.2; this.opacity = 1; this.rotation = (Math.random() - 0.5) * 0.2;
+        this.life = 2.5; this.opacity = 1; this.rotation = (Math.random() - 0.5) * 0.2;
+
+        // 逃げる方向と速度
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 5 + Math.random() * 8;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
 
         if (this.grid) {
             this.col = Math.floor(Math.random() * this.grid.cols);
@@ -449,7 +467,13 @@ class PopCharacter {
             this.adjustPositionAndScale();
         }
         if (this.scale < this.targetScale) this.scale += 0.08;
-        this.life -= 1 / 60; if (this.life < 0.6) this.opacity -= 0.035;
+
+        // 逃げる動き
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.vx * 0.02;
+
+        this.life -= 1 / 60; if (this.life < 0.8) this.opacity -= 0.025;
     }
 
     draw() {
@@ -498,9 +522,59 @@ function animate() {
     ctx.clearRect(0, 0, width, height);
     if (gameState === 'PLAYING') {
         if (Math.random() < 0.035) balls.push(new Ball());
+
+        // ボール同士の衝突
+        for (let i = 0; i < balls.length; i++) {
+            for (let j = i + 1; j < balls.length; j++) {
+                const b1 = balls[i];
+                const b2 = balls[j];
+                const dx = b2.x - b1.x;
+                const dy = b2.y - b1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const minDistance = b1.radius + b2.radius;
+
+                if (distance < minDistance) {
+                    // 衝突応答 (弾性衝突)
+                    const angle = Math.atan2(dy, dx);
+                    const sin = Math.sin(angle);
+                    const cos = Math.cos(angle);
+
+                    // 速度を回転
+                    const vx1 = b1.vx * cos + b1.vy * sin;
+                    const vy1 = b1.vy * cos - b1.vx * sin;
+                    const vx2 = b2.vx * cos + b2.vy * sin;
+                    const vy2 = b2.vy * cos - b2.vx * sin;
+
+                    // 衝突後の速度 (質量は半径に比例と仮定)
+                    const m1 = b1.radius;
+                    const m2 = b2.radius;
+                    const vx1Final = ((m1 - m2) * vx1 + 2 * m2 * vx2) / (m1 + m2);
+                    const vx2Final = ((m2 - m1) * vx2 + 2 * m1 * vx1) / (m1 + m2);
+
+                    // 速度を戻す
+                    b1.vx = vx1Final * cos - vy1 * sin;
+                    b1.vy = vy1 * cos + vx1Final * sin;
+                    b2.vx = vx2Final * cos - vy2 * sin;
+                    b2.vy = vy2 * cos + vx2Final * sin;
+
+                    // 重なり防止
+                    const overlap = minDistance - distance;
+                    const moveX = (overlap / 2) * cos;
+                    const moveY = (overlap / 2) * sin;
+                    b1.x -= moveX; b1.y -= moveY;
+                    b2.x += moveX; b2.y += moveY;
+                }
+            }
+        }
+
         for (let i = balls.length - 1; i >= 0; i--) {
             balls[i].update(); balls[i].draw();
-            if (balls[i].x < -200 || balls[i].x > width + 200 || balls[i].y < -200 || balls[i].y > height + 200) balls.splice(i, 1);
+            // 画面外判定（発生直後の猶予を持たせる）
+            const b = balls[i];
+            const margin = 300;
+            if (b.x < -margin || b.x > width + margin || b.y < -margin || b.y > height + margin) {
+                balls.splice(i, 1);
+            }
         }
     }
     for (let i = particles.length - 1; i >= 0; i--) { particles[i].update(); particles[i].draw(); if (particles[i].life <= 0) particles.splice(i, 1); }
