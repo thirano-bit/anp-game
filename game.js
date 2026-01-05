@@ -352,17 +352,28 @@ class Ball {
         this.x += this.vx;
         this.y += this.vy;
 
-        // 壁との衝突（画面内に入ってから有効化）
-        if (this.x > this.radius && this.x < width - this.radius) {
-            if (this.x - this.radius < 0 || this.x + this.radius > width) {
-                // すでに上記ifで範囲内なのを保証してるので、ここは実際には画面端に触れた瞬間
-            }
+        // わずかな減衰（摩擦）を加えて動きを緩やかにする
+        this.vx *= 0.998;
+        this.vy *= 0.998;
+
+        // 画面端跳ね返りロジック（減衰係数0.8を適用）
+        const bounce = 0.8;
+        if (this.x - this.radius < 0 && this.vx < 0) {
+            this.vx *= -bounce;
+            this.x = this.radius;
         }
-        // 簡易的な画面端跳ね返りロジック
-        if (this.x - this.radius < 0 && this.vx < 0) this.vx *= -1;
-        if (this.x + this.radius > width && this.vx > 0) this.vx *= -1;
-        if (this.y - this.radius < 0 && this.vy < 0) this.vy *= -1;
-        if (this.y + this.radius > height && this.vy > 0) this.vy *= -1;
+        if (this.x + this.radius > width && this.vx > 0) {
+            this.vx *= -bounce;
+            this.x = width - this.radius;
+        }
+        if (this.y - this.radius < 0 && this.vy < 0) {
+            this.vy *= -bounce;
+            this.y = this.radius;
+        }
+        if (this.y + this.radius > height && this.vy > 0) {
+            this.vy *= -bounce;
+            this.y = height - this.radius;
+        }
     }
 
     draw() {
@@ -568,11 +579,12 @@ function animate() {
                     const vx2 = b2.vx * cos + b2.vy * sin;
                     const vy2 = b2.vy * cos - b2.vx * sin;
 
-                    // 衝突後の速度 (質量は半径に比例と仮定)
+                    // 衝突後の速度 (質量は半径に比例と仮定, 跳ね返りを緩やかにするため0.8を乗じる)
                     const m1 = b1.radius;
                     const m2 = b2.radius;
-                    const vx1Final = ((m1 - m2) * vx1 + 2 * m2 * vx2) / (m1 + m2);
-                    const vx2Final = ((m2 - m1) * vx2 + 2 * m1 * vx1) / (m1 + m2);
+                    const bounce = 0.8;
+                    const vx1Final = (((m1 - m2) * vx1 + 2 * m2 * vx2) / (m1 + m2)) * bounce;
+                    const vx2Final = (((m2 - m1) * vx2 + 2 * m1 * vx1) / (m1 + m2)) * bounce;
 
                     // 速度を戻す
                     b1.vx = vx1Final * cos - vy1 * sin;
