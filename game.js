@@ -35,10 +35,10 @@ const audio = {
     enabled: false
 };
 audio.bgm.loop = true;
-audio.bgm.volume = 0.5;
-audio.correct.volume = 1.0;
-audio.wrong.volume = 1.0;
-audio.special.forEach(s => s.volume = 1.0);
+audio.bgm.volume = 0.3; // 重なり時の音量ダウン（ポンピング）を防ぐためのヘッドルーム確保
+audio.correct.volume = 0.5;
+audio.wrong.volume = 0.5;
+audio.special.forEach(s => s.volume = 0.5);
 
 fetch('public/sounds/explosion.mp3')
     .then(res => {
@@ -106,7 +106,7 @@ function playPopSound(isCorrect = true) {
             const source = audioContext.createBufferSource();
             const gainNode = audioContext.createGain();
             source.buffer = audio.popBuffer;
-            gainNode.gain.value = 1.0;
+            gainNode.gain.value = 0.5;
             source.connect(gainNode);
             gainNode.connect(audioContext.destination);
             source.start(0);
