@@ -421,11 +421,14 @@ class PopCharacter {
         this.displayName = data ? data.displayName : null;
 
         this.x = x; this.y = y; this.scale = 0; this.targetScale = 0.65;
-        this.life = 2.5; this.opacity = 1; this.rotation = (Math.random() - 0.5) * 0.2;
+        this.life = 4.0; // 待ち時間2秒 + 逃走用
+        this.opacity = 1;
+        this.rotation = (Math.random() - 0.5) * 0.1; // わずかな傾きのみ
+        this.waitTime = 120; // 約2秒（60fps）
 
         // 逃げる方向と速度
         const angle = Math.random() * Math.PI * 2;
-        const speed = 5 + Math.random() * 8;
+        const speed = 6 + Math.random() * 8;
         this.vx = Math.cos(angle) * speed;
         this.vy = Math.sin(angle) * speed;
 
@@ -468,18 +471,25 @@ class PopCharacter {
         }
         if (this.scale < this.targetScale) this.scale += 0.08;
 
-        // 逃げる動き
-        this.x += this.vx;
-        this.y += this.vy;
-        this.rotation += this.vx * 0.02;
+        if (this.waitTime > 0) {
+            this.waitTime--;
+        } else {
+            // 2秒経過後に逃げる
+            this.x += this.vx;
+            this.y += this.vy;
+            // 走っているように見せるための上下の揺れ
+            this.yOffset = Math.sin(Date.now() * 0.02) * 5;
+            this.life -= 1 / 60;
+        }
 
-        this.life -= 1 / 60; if (this.life < 0.8) this.opacity -= 0.025;
+        if (this.life < 1.0) this.opacity -= 0.04;
     }
 
     draw() {
         if (this.opacity <= 0 || !this.canvas) return;
         ctx.save(); ctx.globalAlpha = Math.max(0, this.opacity);
-        ctx.translate(this.x, this.y); ctx.rotate(this.rotation); ctx.scale(this.scale, this.scale);
+        ctx.translate(this.x, this.y + (this.yOffset || 0));
+        ctx.rotate(this.rotation); ctx.scale(this.scale, this.scale);
         if (this.grid) {
             const sw = this.canvas.width / this.grid.cols; const sh = this.canvas.height / this.grid.rows;
             const sx = this.col * sw; const sy = this.row * sh;
@@ -514,6 +524,9 @@ function handleTouch(ex, ey) {
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); const rect = canvas.getBoundingClientRect(); for (let i = 0; i < e.touches.length; i++) { const t = e.touches[i]; handleTouch(t.clientX - rect.left, t.clientY - rect.top); } }, { passive: false });
 canvas.addEventListener('mousedown', (e) => { const rect = canvas.getBoundingClientRect(); handleTouch(e.clientX - rect.left, e.clientY - rect.top); });
 
+let currentTargetBallCount = 12;
+let lastBallCountUpdate = 0;
+
 function animate() {
     if (isPaused) {
         requestAnimationFrame(animate);
@@ -521,7 +534,17 @@ function animate() {
     }
     ctx.clearRect(0, 0, width, height);
     if (gameState === 'PLAYING') {
-        if (Math.random() < 0.035) balls.push(new Ball());
+        const now = Date.now();
+        // 5秒ごとに目標数をランダムに変更
+        if (now - lastBallCountUpdate > 5000) {
+            currentTargetBallCount = 10 + Math.floor(Math.random() * 6); // 10-15
+            lastBallCountUpdate = now;
+        }
+
+        // ボールの数が目標より少なければ追加
+        if (balls.length < currentTargetBallCount && Math.random() < 0.05) {
+            balls.push(new Ball());
+        }
 
         // ボール同士の衝突
         for (let i = 0; i < balls.length; i++) {
